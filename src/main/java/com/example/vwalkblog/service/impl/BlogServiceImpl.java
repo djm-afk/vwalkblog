@@ -1,12 +1,14 @@
 package com.example.vwalkblog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.example.vwalkblog.dto.BlogDto;
 import com.example.vwalkblog.pojo.Blog;
 import com.example.vwalkblog.pojo.BlogCategory;
 import com.example.vwalkblog.pojo.Category;
+import com.example.vwalkblog.pojo.Comments;
 import com.example.vwalkblog.respR.Result;
 import com.example.vwalkblog.service.BlogCategoryService;
 import com.example.vwalkblog.service.BlogService;
@@ -21,8 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.websocket.server.PathParam;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -140,6 +142,28 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
             return blogDto;
         }).collect(Collectors.toList());
         return Result.success(blogDtoList);
+    }
+
+    // 删除blog及其分类、评论
+    @Override
+    @Transactional
+    public boolean removeBlog(Long[] ids){
+        List<Long> idList = Arrays.asList(ids);
+        // 删除blog
+        boolean removeBlogs = this.removeBatchByIds(idList);
+        // 删除blog-category表中blog对应的分类
+        LambdaUpdateWrapper<BlogCategory> luwBC = new LambdaUpdateWrapper<>();
+        idList.stream().forEach(blogId -> {
+            luwBC.eq(BlogCategory::getBlogId,blogId);
+            blogCategoryService.remove(luwBC);
+        });
+        // 删除comments表中blog对应comment
+        LambdaUpdateWrapper<Comments> luwC = new LambdaUpdateWrapper<>();
+        idList.stream().forEach(blogId -> {
+            luwC.eq(Comments::getBlogId,blogId);
+            commentsService.remove(luwC);
+        });
+        return removeBlogs;
     }
 }
 

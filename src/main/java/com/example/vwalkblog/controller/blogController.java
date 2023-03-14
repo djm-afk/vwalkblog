@@ -35,7 +35,7 @@ public class blogController {
 
     // 新增blog
     @PostMapping()
-    @CacheEvict(value = "blogCache",allEntries = true)
+    @CacheEvict(value = {"blogCache","userBlogCache"},allEntries = true)
     public Result<String> save(@RequestBody BlogDto blogDto){
         boolean save = bs.saveWithType(blogDto);
         return save ? Result.success("保存成功！") : Result.error("保存失败！");
@@ -50,14 +50,15 @@ public class blogController {
 
     // 删除blog
     @DeleteMapping()
-    @CacheEvict(value = "blogCache",allEntries = true)
+    @CacheEvict(value = {"blogCache","userBlogCache"},allEntries = true)
     public Result<String> save(@PathParam("ids") Long[] ids){
-        boolean delete = bs.removeBatchByIds(Arrays.asList(ids));
-        return delete ? Result.success("保存成功！") : Result.error("保存失败！");
+        boolean delete = bs.removeBlog(ids);
+        return delete ? Result.success("删除成功！") : Result.error("删除失败！");
     }
 
     // 根据userId查询blog
     @GetMapping("/byUserId/{userId}")
+    @Cacheable(value = "userBlogCache",key = "#userId")
     public Result<List<BlogDto>> getBlogByUserId(@PathVariable Long userId){
         return bs.getBlogByUserId(userId);
     }

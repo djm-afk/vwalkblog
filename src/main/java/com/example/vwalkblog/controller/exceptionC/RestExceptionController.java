@@ -25,7 +25,7 @@ public class RestExceptionController {
         return Result.error("数据库异常");
     }
 
-    // category删除业务异常
+    // blog删除业务异常
     @ExceptionHandler(BlogDelEx.class)
     public Result BlogDelExHandler(RuntimeException ex){
         return Result.error(ex.getMessage());

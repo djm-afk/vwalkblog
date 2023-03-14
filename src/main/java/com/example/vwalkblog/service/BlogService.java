@@ -5,9 +5,7 @@ import com.example.vwalkblog.dto.BlogDto;
 import com.example.vwalkblog.pojo.Blog;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.example.vwalkblog.respR.Result;
-import org.apache.ibatis.annotations.Select;
 
-import javax.websocket.server.PathParam;
 import java.util.List;
 
 /**
@@ -23,4 +21,7 @@ public interface BlogService extends IService<Blog> {
     Result<Page<BlogDto>> selectByPage(String name, Integer page, Integer pageSize);
 
     Result<List<BlogDto>> getBlogByUserId(Long blogId);
+
+    // 删除blog及其分类、评论
+    boolean removeBlog(Long[] ids);
 }
