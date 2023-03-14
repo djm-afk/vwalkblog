@@ -56,7 +56,7 @@ public class blogController {
         return delete ? Result.success("保存成功！") : Result.error("保存失败！");
     }
 
-    // 根据userId查询bllog
+    // 根据userId查询blog
     @GetMapping("/byUserId/{userId}")
     public Result<List<BlogDto>> getBlogByUserId(@PathVariable Long userId){
         return bs.getBlogByUserId(userId);

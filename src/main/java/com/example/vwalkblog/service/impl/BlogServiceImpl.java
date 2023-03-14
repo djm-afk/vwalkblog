@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.example.vwalkblog.dto.BlogDto;
 import com.example.vwalkblog.pojo.Blog;
+import com.example.vwalkblog.pojo.BlogCategory;
 import com.example.vwalkblog.pojo.Category;
 import com.example.vwalkblog.respR.Result;
+import com.example.vwalkblog.service.BlogCategoryService;
 import com.example.vwalkblog.service.BlogService;
 import com.example.vwalkblog.mapper.BlogMapper;
 import com.example.vwalkblog.service.CategoryService;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.websocket.server.PathParam;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +38,9 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
     private CategoryService categoryService;
 
     @Autowired
+    private BlogCategoryService blogCategoryService;
+
+    @Autowired
     private CommentsService commentsService;
     // 新增blog
     @Override
@@ -43,11 +49,14 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
         boolean saveBlog = this.save(blogDto);
         Long blogDtoId = blogDto.getId();
         List<Category> categories = blogDto.getCategories();
-        categories.stream().forEach(item -> {
-            item.setBlogId(blogDtoId);
+        categories.stream().forEach(category -> {
+            Long categoryId = category.getId();
+            BlogCategory blogCategory = new BlogCategory();
+            blogCategory.setBlogId(blogDtoId);
+            blogCategory.setCategoryId(categoryId);
+            blogCategoryService.save(blogCategory);
         });
-        boolean saveCategoryBatch = categoryService.saveBatch(categories);
-        return saveBlog && saveCategoryBatch;
+        return saveBlog;
     }
 
     // 根据blogId查询blog
@@ -56,9 +65,14 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
         Blog blog = this.getById(blogId);
         BlogDto blogDto = new BlogDto();
         BeanUtils.copyProperties(blog,blogDto);
-        LambdaQueryWrapper<Category> lqwc = new LambdaQueryWrapper<>();
-        lqwc.eq(Category::getBlogId,blogId);
-        List<Category> categories = categoryService.list(lqwc);
+        LambdaQueryWrapper<BlogCategory> lqwbc = new LambdaQueryWrapper<>();
+        lqwbc.eq(BlogCategory::getBlogId,blogId);
+        List<BlogCategory> blogCategories = blogCategoryService.list(lqwbc);
+        List<Category> categories = blogCategories.stream().map(blogCategory -> {
+            Long categoryId = blogCategory.getCategoryId();
+            Category category = categoryService.getById(categoryId);
+            return category;
+        }).collect(Collectors.toList());
         blogDto.setCategories(categories);
         return Result.success(blogDto);
     }
@@ -67,7 +81,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
     @Override
     public Result<Page<BlogDto>> selectByPage(@PathParam("name") String name, @PathParam("page") Integer page, @PathParam("pageSize") Integer pageSize){
         LambdaQueryWrapper<Blog> lqw = new LambdaQueryWrapper();
-        lqw.select(Blog::getId,Blog::getCreateUser,Blog::getTitle,Blog::getCover,Blog::getCreateTime,Blog::getDescription);
+        lqw.select(Blog::getId,Blog::getCreateUser,Blog::getTitle,Blog::getDescription,Blog::getCover,Blog::getCreateTime);
         lqw.like(!Strings.isEmpty(name),Blog::getTitle,name);
         lqw.orderByDesc(Blog::getCreateTime);
         Page page_ = this.page(new Page(page, pageSize), lqw);
@@ -76,22 +90,28 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
             page_ = this.page(new Page(pages, pageSize), lqw);
         }
         Page<BlogDto> blogDtoPage = new Page<>();
-        BeanUtils.copyProperties(page_,blogDtoPage);
+        BeanUtils.copyProperties(page_,blogDtoPage,"records");
         // 处理records
         List<Blog> records = page_.getRecords();
-        LambdaQueryWrapper<Category> lqw_c = new LambdaQueryWrapper();
-        ArrayList<BlogDto> blogDtos = new ArrayList<>();
-        records.stream().forEach(item -> {
-            BlogDto blogDto = new BlogDto();
-            BeanUtils.copyProperties(item,blogDto);
-            Long blogId = item.getId();
-            lqw_c.clear();
-            lqw_c.eq(Category::getBlogId,blogId);
-            List<Category> categories = categoryService.list(lqw_c);
-            blogDto.setCategories(categories);
-            blogDtos.add(blogDto);
+        LambdaQueryWrapper<BlogCategory> lqw_bc = new LambdaQueryWrapper();
+        lqw_bc.select(BlogCategory::getCategoryId);
+        List<BlogDto> list = new ArrayList<>();
+        records.stream().forEach(record -> {
+            Long blogId = record.getId();
+            BlogDto dishDto = new BlogDto();
+            BeanUtils.copyProperties(record,dishDto);
+            lqw_bc.clear();
+            lqw_bc.eq(BlogCategory::getBlogId,blogId);
+            List<BlogCategory> blogCategories = blogCategoryService.list(lqw_bc);
+            List<Category> categories = blogCategories.stream().map(blogCategory -> {
+                Long categoryId = blogCategory.getCategoryId();
+                Category category = categoryService.getById(categoryId);
+                return category;
+            }).collect(Collectors.toList());
+            dishDto.setCategories(categories);
+            list.add(dishDto);
         });
-        blogDtoPage.setRecords(blogDtos);
+        blogDtoPage.setRecords(list);
         return Result.success(blogDtoPage);
     }
 
@@ -99,17 +119,23 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
     @Override
     public Result<List<BlogDto>> getBlogByUserId(Long userId){
         LambdaQueryWrapper<Blog> lqwb = new LambdaQueryWrapper<>();
-        LambdaQueryWrapper<Category> lqwca = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<BlogCategory> lqwbc = new LambdaQueryWrapper<>();
+        lqwbc.select(BlogCategory::getCategoryId);
         lqwb.select(Blog::getId,Blog::getCreateUser,Blog::getTitle,Blog::getCover,Blog::getCreateTime,Blog::getDescription);
         lqwb.eq(Blog::getCreateUser,userId);
         List<Blog> list = this.list(lqwb);
         ArrayList<BlogDto> blogDtoList = (ArrayList<BlogDto>) list.stream().map(blog -> {
-            Long blogId = blog.getId();
             BlogDto blogDto = new BlogDto();
             BeanUtils.copyProperties(blog,blogDto);
-            lqwca.clear();
-            lqwca.eq(Category::getBlogId,blogId);
-            List<Category> categories = categoryService.list(lqwca);
+            Long blogId = blogDto.getId();
+            lqwbc.clear();
+            lqwbc.eq(BlogCategory::getBlogId,blogId);
+            List<BlogCategory> blogCategories = blogCategoryService.list(lqwbc);
+            List<Category> categories = blogCategories.stream().map(blogCategory -> {
+                Long categoryId = blogCategory.getCategoryId();
+                Category category = categoryService.getById(categoryId);
+                return category;
+            }).collect(Collectors.toList());
             blogDto.setCategories(categories);
             return blogDto;
         }).collect(Collectors.toList());

@@ -28,7 +28,7 @@ public class Category implements Serializable {
     /**
      * blog_id
      */
-    private Long blogId;
+//    private Long blogId;
 
     /**
      * 描述信息
