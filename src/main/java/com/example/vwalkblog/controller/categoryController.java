@@ -1,6 +1,6 @@
 package com.example.vwalkblog.controller;
 
-import com.example.vwalkblog.controller.exceptionC.ex.CategoryDelEx;
+import com.example.vwalkblog.controller.exceptionC.ex.CategoryEx;
 import com.example.vwalkblog.pojo.Category;
 import com.example.vwalkblog.respR.Result;
 import com.example.vwalkblog.service.CategoryService;
@@ -36,7 +36,7 @@ public class categoryController {
     @DeleteMapping("/{categoryId}")
     public Result<String> deleteCategory(@PathVariable Long categoryId){
         if (Objects.isNull(cs.getById(categoryId))){
-            throw new CategoryDelEx("此分类不存在,无法删除");
+            throw new CategoryEx("此分类不存在,无法删除");
         }
         boolean remove = cs.removeById(categoryId);
         return remove ? Result.success("删除分类成功") : Result.error("删除分类失败");

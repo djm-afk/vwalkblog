@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.vwalkblog.dto.BlogDto;
 import com.example.vwalkblog.pojo.Blog;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.example.vwalkblog.pojo.PageResult;
+import com.example.vwalkblog.pojo.RequestParams;
 import com.example.vwalkblog.respR.Result;
 
 import java.util.List;
@@ -24,4 +26,6 @@ public interface BlogService extends IService<Blog> {
 
     // 删除blog及其分类、评论
     boolean removeBlog(Long[] ids);
+
+    Result<PageResult> selectByElastic(RequestParams requestParams);
 }

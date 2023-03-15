@@ -1,14 +1,12 @@
 package com.example.vwalkblog.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.example.vwalkblog.dto.BlogDto;
-import com.example.vwalkblog.pojo.Blog;
-import com.example.vwalkblog.pojo.BlogCategory;
-import com.example.vwalkblog.pojo.Category;
-import com.example.vwalkblog.pojo.Comments;
+import com.example.vwalkblog.pojo.*;
 import com.example.vwalkblog.respR.Result;
 import com.example.vwalkblog.service.BlogCategoryService;
 import com.example.vwalkblog.service.BlogService;
@@ -16,15 +14,23 @@ import com.example.vwalkblog.mapper.BlogMapper;
 import com.example.vwalkblog.service.CategoryService;
 import com.example.vwalkblog.service.CommentsService;
 import org.apache.logging.log4j.util.Strings;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
-import javax.websocket.server.PathParam;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -44,6 +50,11 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
 
     @Autowired
     private CommentsService commentsService;
+
+    @Autowired
+    private RestHighLevelClient client;
+
+
     // 新增blog
     @Override
     @Transactional
@@ -81,10 +92,11 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
 
     // 查询blog列表
     @Override
-    public Result<Page<BlogDto>> selectByPage(@PathParam("name") String name, @PathParam("page") Integer page, @PathParam("pageSize") Integer pageSize){
+    public Result<Page<BlogDto>> selectByPage(String keywords,Integer page,Integer pageSize){
         LambdaQueryWrapper<Blog> lqw = new LambdaQueryWrapper();
         lqw.select(Blog::getId,Blog::getCreateUser,Blog::getTitle,Blog::getDescription,Blog::getCover,Blog::getCreateTime);
-        lqw.like(!Strings.isEmpty(name),Blog::getTitle,name);
+        lqw.or(!Strings.isEmpty(keywords)).like(Blog::getTitle,keywords);
+        lqw.or(!Strings.isEmpty(keywords)).like(Blog::getDescription,keywords);
         lqw.orderByDesc(Blog::getCreateTime);
         Page page_ = this.page(new Page(page, pageSize), lqw);
         long pages = page_.getPages();
@@ -165,8 +177,67 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
         });
         return removeBlogs;
     }
+
+    // elastic查看blog列表
+    @Override
+    public Result<PageResult> selectByElastic(RequestParams requestParams) {
+        SearchRequest request = new SearchRequest("vwalk_blog");
+
+        System.out.println(requestParams);
+        String key = requestParams.getKey();
+        // 关键字搜索
+        if (key == null || "".equals(key)){
+            request.source()
+                    .query(QueryBuilders.matchAllQuery());
+        }else {
+            request.source()
+                    .query(QueryBuilders.matchQuery("all",key));
+        }
+        Integer page = requestParams.getPage();
+        Integer size = requestParams.getSize();
+        request.source()
+                .highlighter(new HighlightBuilder()
+                .field("title").requireFieldMatch(false)
+                .field("description").requireFieldMatch(false));
+        request.source().from((page - 1) * size).size(size);
+        try {
+            SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+            return Result.success(handleResponse(response));
+        }catch (Throwable e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static PageResult handleResponse(SearchResponse response) {
+        SearchHits searchHits = response.getHits();
+        long total = searchHits.getTotalHits().value;
+        System.out.println("共搜索到 "+total+" 条数据");
+        SearchHit[] hits = searchHits.getHits();
+        PageResult pageResult = new PageResult();
+        pageResult.setTotal(total);
+        List<BlogDto> blogDtos = Arrays.stream(hits).map(hit -> {
+            String json = hit.getSourceAsString();
+            BlogDto blogDto = JSON.parseObject(json, BlogDto.class);
+            Map<String, HighlightField> highlightFields = hit.getHighlightFields();
+            // 根据名字获取高亮结果
+            if (!CollectionUtils.isEmpty(highlightFields)) {
+                HighlightField highlightFieldTitle = highlightFields.get("title");
+                HighlightField highlightFieldDescription = highlightFields.get("description");
+                if (Objects.nonNull(highlightFieldTitle)) {
+                    String title = highlightFieldTitle.getFragments()[0].string();
+                    // 覆盖非高亮
+                    blogDto.setTitle(title);
+                }
+                if (Objects.nonNull(highlightFieldDescription)) {
+                    String description = highlightFieldDescription.getFragments()[0].string();
+                    // 覆盖非高亮
+                    blogDto.setDescription(description);
+                }
+            }
+            return blogDto;
+        }).collect(Collectors.toList());
+        pageResult.setRecords(blogDtos);
+        return pageResult;
+    }
 }
-
-
-
-

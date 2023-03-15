@@ -1,7 +1,7 @@
 package com.example.vwalkblog.controller.exceptionC;
 
-import com.example.vwalkblog.controller.exceptionC.ex.BlogDelEx;
-import com.example.vwalkblog.controller.exceptionC.ex.CategoryDelEx;
+import com.example.vwalkblog.controller.exceptionC.ex.BlogEx;
+import com.example.vwalkblog.controller.exceptionC.ex.CategoryEx;
 import com.example.vwalkblog.respR.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,14 +26,14 @@ public class RestExceptionController {
     }
 
     // blog删除业务异常
-    @ExceptionHandler(BlogDelEx.class)
+    @ExceptionHandler(BlogEx.class)
     public Result BlogDelExHandler(RuntimeException ex){
         return Result.error(ex.getMessage());
     }
 
 
     // category删除业务异常
-    @ExceptionHandler(CategoryDelEx.class)
+    @ExceptionHandler(CategoryEx.class)
     public Result CategoryDelExHandler(RuntimeException ex){
         return Result.error(ex.getMessage());
     }

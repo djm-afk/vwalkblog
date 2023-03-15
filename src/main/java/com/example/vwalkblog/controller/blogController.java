@@ -2,6 +2,8 @@ package com.example.vwalkblog.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.vwalkblog.dto.BlogDto;
+import com.example.vwalkblog.pojo.PageResult;
+import com.example.vwalkblog.pojo.RequestParams;
 import com.example.vwalkblog.respR.Result;
 import com.example.vwalkblog.service.BlogService;
 import com.example.vwalkblog.service.CategoryService;
@@ -29,8 +31,8 @@ public class blogController {
 
     // 查询blog列表
     @GetMapping("/page")
-    public Result<Page<BlogDto>> selectByPage(@PathParam("name") String name, @PathParam("page") Integer page, @PathParam("pageSize") Integer pageSize){
-        return bs.selectByPage(name, page, pageSize);
+    public Result<Page<BlogDto>> selectByPage(@PathParam("keywords") String keywords, @PathParam("page") Integer page, @PathParam("size") Integer pageSize){
+        return bs.selectByPage(keywords, page, pageSize);
     }
 
     // 新增blog
@@ -61,5 +63,11 @@ public class blogController {
     @Cacheable(value = "userBlogCache",key = "#userId")
     public Result<List<BlogDto>> getBlogByUserId(@PathVariable Long userId){
         return bs.getBlogByUserId(userId);
+    }
+
+    // 查询blog列表(elasticsearch)
+    @GetMapping("/elastic")
+    public Result<PageResult> selectByElastic(RequestParams requestParams){
+        return bs.selectByElastic(requestParams);
     }
 }
