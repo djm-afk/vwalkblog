@@ -48,5 +48,8 @@ vwalkblog:
     path: D:\ProgrammingProject\IdeaProject2022\VWalkBlog\src\main\resources\img\
 #  path: /usr/local/app/Reggie_take_out/resources/img/
 
+elastic:
+  address: http://192.168.248.184:9200
+
 
 

@@ -6,6 +6,7 @@ import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
@@ -25,11 +26,13 @@ public class VWalkBlogApplication {
         SpringApplication.run(VWalkBlogApplication.class, args);
     }
 
+    @Value("${elastic.address}")
+    private String elasticPath;
     @Bean
     // 初始化客户端
     public RestHighLevelClient restHighLevelClient(){
         return new RestHighLevelClient(RestClient.builder(
-                HttpHost.create("http://192.168.248.184:9200")
+                HttpHost.create(elasticPath)
         ));
     }
 
