@@ -28,4 +28,7 @@ public interface BlogService extends IService<Blog> {
     boolean removeBlog(Long[] ids);
 
     Result<PageResult> selectByElastic(RequestParams requestParams);
+
+    // 根据userId查询blog列表
+    Result<PageResult> getBlogByUserIdElastic(Long userId);
 }

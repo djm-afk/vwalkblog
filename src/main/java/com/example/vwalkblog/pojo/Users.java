@@ -45,6 +45,11 @@ public class Users implements Serializable {
      */
     private String avatar;
 
+    /**
+     * 个人简介
+     */
+    private String description;
+
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

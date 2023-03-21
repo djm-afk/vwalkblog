@@ -1,7 +1,11 @@
 package com.example.vwalkblog.service;
 
+import com.example.vwalkblog.dto.CommentsDto;
 import com.example.vwalkblog.pojo.Comments;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.example.vwalkblog.respR.Result;
+
+import java.util.List;
 
 /**
 * @author 32580
@@ -10,4 +14,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
 */
 public interface CommentsService extends IService<Comments> {
 
+    Result<List<CommentsDto>> getListByBlogId(Long blogId);
 }

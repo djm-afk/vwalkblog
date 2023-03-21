@@ -45,11 +45,14 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 vwalkblog:
-    path: D:\ProgrammingProject\IdeaProject2022\VWalkBlog\src\main\resources\img\
-#  path: /usr/local/app/Reggie_take_out/resources/img/
+    cover-path: D:\ProgrammingProject\IdeaProject2022\VWalkBlog\src\main\resources\img\cover\
+    image-path: D:\ProgrammingProject\IdeaProject2022\VWalkBlog\src\main\resources\img\image\
+#  cover-path: /usr/local/app/VWalkBlog/resources/img/cover/
+#  cover-path: /usr/local/app/VWalkBlog/resources/img/image/
 
 elastic:
   address: http://192.168.248.184:9200
+  index: vwalk_blog
 
 
 

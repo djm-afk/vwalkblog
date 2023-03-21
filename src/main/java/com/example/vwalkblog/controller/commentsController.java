@@ -1,16 +1,21 @@
 package com.example.vwalkblog.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.example.vwalkblog.dto.CommentsDto;
 import com.example.vwalkblog.pojo.Comments;
 import com.example.vwalkblog.pojo.Users;
 import com.example.vwalkblog.respR.Result;
 import com.example.vwalkblog.service.CommentsService;
+import com.example.vwalkblog.service.UserService;
+import com.example.vwalkblog.service.impl.UserServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpSession;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/comments")
@@ -22,6 +27,7 @@ public class commentsController {
     @Autowired
     private CommentsService cs;
 
+
     // 新增comment
     @PostMapping()
     public Result<String> addComment(@RequestBody Comments comment){
@@ -30,11 +36,9 @@ public class commentsController {
     }
     // 查看comments
     @GetMapping("/{blogId}")
-    public Result<List<Comments>> getComments(@PathVariable Long blogId){
-        LambdaQueryWrapper<Comments> lqwco = new LambdaQueryWrapper<>();
-        lqwco.eq(Comments::getBlogId,blogId);
-        List<Comments> comments = cs.list(lqwco);
-        return Result.success(comments);
+    public Result<List<CommentsDto>> getComments(@PathVariable Long blogId){
+
+        return cs.getListByBlogId(blogId);
     }
     // 删除comment
     @DeleteMapping()

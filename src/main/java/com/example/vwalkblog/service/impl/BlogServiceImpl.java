@@ -5,31 +5,37 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.example.vwalkblog.common.BaseContextThreadLocal;
+import com.example.vwalkblog.controller.exceptionC.ex.BlogEx;
 import com.example.vwalkblog.dto.BlogDto;
 import com.example.vwalkblog.pojo.*;
 import com.example.vwalkblog.respR.Result;
-import com.example.vwalkblog.service.BlogCategoryService;
-import com.example.vwalkblog.service.BlogService;
+import com.example.vwalkblog.service.*;
 import com.example.vwalkblog.mapper.BlogMapper;
-import com.example.vwalkblog.service.CategoryService;
-import com.example.vwalkblog.service.CommentsService;
 import org.apache.logging.log4j.util.Strings;
+import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.delete.DeleteResponse;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -39,8 +45,7 @@ import java.util.stream.Collectors;
  * @createDate 2023-03-09 15:17:39
  */
 @Service
-public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
-        implements BlogService{
+public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements BlogService{
 
     @Autowired
     private CategoryService categoryService;
@@ -52,10 +57,16 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
     private CommentsService commentsService;
 
     @Autowired
+    private UserService userService;
+    @Autowired
     private RestHighLevelClient client;
 
 
-    // 新增blog
+    @Value("${elastic.index}")
+    private String index;
+
+
+    // 新增blog(及elastic)
     @Override
     @Transactional
     public boolean saveWithType(BlogDto blogDto) {
@@ -69,6 +80,24 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
             blogCategory.setCategoryId(categoryId);
             blogCategoryService.save(blogCategory);
         });
+        blogDto.getCategories().stream().forEach(category -> {
+            Long id = category.getId();
+            Category byId = categoryService.getById(id);
+            BeanUtils.copyProperties(byId,category);
+        });
+        blogDto.setImage(null);
+        blogDto.setCreateuserdetail(userService.getById(BaseContextThreadLocal.getCurrentId()));
+        // 1. 创建Request对象
+        IndexRequest request = new IndexRequest(index).id(blogDto.getId().toString());
+        // 2. 准备JSON文档
+        request.source(JSON.toJSONString(blogDto), XContentType.JSON);
+        // 3. 发送请求
+        try {
+            IndexResponse response = client.index(request, RequestOptions.DEFAULT);
+//            System.out.println("responseStatus "+response.status());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return saveBlog;
     }
 
@@ -77,7 +106,9 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
     public Result<BlogDto> getBlogById(Long blogId){
         Blog blog = this.getById(blogId);
         BlogDto blogDto = new BlogDto();
-        BeanUtils.copyProperties(blog,blogDto);
+        BeanUtils.copyProperties(blog,blogDto,"image");
+        String image = blog.getImage();
+        blogDto.setImages(image.split(","));
         LambdaQueryWrapper<BlogCategory> lqwbc = new LambdaQueryWrapper<>();
         lqwbc.eq(BlogCategory::getBlogId,blogId);
         List<BlogCategory> blogCategories = blogCategoryService.list(lqwbc);
@@ -140,7 +171,9 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
         List<Blog> list = this.list(lqwb);
         ArrayList<BlogDto> blogDtoList = (ArrayList<BlogDto>) list.stream().map(blog -> {
             BlogDto blogDto = new BlogDto();
-            BeanUtils.copyProperties(blog,blogDto);
+            BeanUtils.copyProperties(blog,blogDto,"image");
+//            String image = blog.getImage();
+//            blogDto.setImages(image.split(","));
             Long blogId = blogDto.getId();
             lqwbc.clear();
             lqwbc.eq(BlogCategory::getBlogId,blogId);
@@ -156,7 +189,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
         return Result.success(blogDtoList);
     }
 
-    // 删除blog及其分类、评论
+    // 删除blog及其分类、评论(及elastic)
     @Override
     @Transactional
     public boolean removeBlog(Long[] ids){
@@ -175,15 +208,28 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
             luwC.eq(Comments::getBlogId,blogId);
             commentsService.remove(luwC);
         });
+        Arrays.stream(ids).forEach(id -> {
+            // 1. 创建Request对象
+            DeleteRequest request = new DeleteRequest(index, String.valueOf(id));
+            // 2. 发送请求
+            try {
+                DeleteResponse delete = client.delete(request, RequestOptions.DEFAULT);
+                if ("NOT_FOUND".equalsIgnoreCase(String.valueOf(delete.getResult()))){
+                    throw new BlogEx("Elastic索引库中无此数据");
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
         return removeBlogs;
     }
 
     // elastic查看blog列表
     @Override
     public Result<PageResult> selectByElastic(RequestParams requestParams) {
-        SearchRequest request = new SearchRequest("vwalk_blog");
-
-        System.out.println(requestParams);
+        SearchRequest request = new SearchRequest(index);
+//        System.out.println(requestParams);
         String key = requestParams.getKey();
         // 关键字搜索
         if (key == null || "".equals(key)){
@@ -199,7 +245,8 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
                 .highlighter(new HighlightBuilder()
                 .field("title").requireFieldMatch(false)
                 .field("description").requireFieldMatch(false));
-        request.source().from((page - 1) * size).size(size);
+        request.source().from(0).size(20);
+        request.source().sort("createTime", SortOrder.DESC);
         try {
             SearchResponse response = client.search(request, RequestOptions.DEFAULT);
             return Result.success(handleResponse(response));
@@ -208,6 +255,25 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
             throw new RuntimeException(e);
         }
     }
+
+    // 根据userId查询blog列表(elastic)
+    @Override
+    public Result<PageResult> getBlogByUserIdElastic(Long userId){
+        SearchRequest request = new SearchRequest(index);
+        request.source()
+                .query(QueryBuilders.matchQuery("createUser",userId));
+//        Integer page = requestParams.getPage();
+//        Integer size = requestParams.getSize();
+//        request.source().from((page - 1) * size).size(size);
+        try {
+            SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+            return Result.success(handleResponse(response));
+        }catch (Throwable e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
 
     private static PageResult handleResponse(SearchResponse response) {
         SearchHits searchHits = response.getHits();

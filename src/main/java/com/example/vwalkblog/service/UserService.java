@@ -10,4 +10,5 @@ import com.example.vwalkblog.pojo.Users;
 */
 public interface UserService extends IService<Users> {
 
+    boolean updateUser(Users user);
 }

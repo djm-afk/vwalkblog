@@ -70,4 +70,10 @@ public class blogController {
     public Result<PageResult> selectByElastic(RequestParams requestParams){
         return bs.selectByElastic(requestParams);
     }
+
+    // 根据userId查询blog(elasticsearch)
+    @GetMapping("/elastic/{userId}")
+    Result<PageResult> getBlogByUserIdElastc(@PathVariable Long userId){
+        return bs.getBlogByUserIdElastic(userId);
+    }
 }

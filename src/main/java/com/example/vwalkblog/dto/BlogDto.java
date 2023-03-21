@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.example.vwalkblog.pojo.Blog;
 import com.example.vwalkblog.pojo.Category;
+import com.example.vwalkblog.pojo.Users;
 import lombok.Data;
 import lombok.ToString;
 
@@ -72,5 +73,6 @@ public class BlogDto extends Blog{
     private Integer isDeleted;
 
     private List<Category> categories = new ArrayList<>();
-//    private List<Comments> comments = new ArrayList<>();
+    private Users createuserdetail;
+    private String[] images;
 }

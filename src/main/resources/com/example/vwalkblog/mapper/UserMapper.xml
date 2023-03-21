@@ -11,9 +11,10 @@
             <result property="pwd" column="pwd" jdbcType="VARCHAR"/>
             <result property="sex" column="sex" jdbcType="VARCHAR"/>
             <result property="avatar" column="avatar" jdbcType="VARCHAR"/>
+            <result property="description" column="description" jdbcType="VARCHAR"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,name,phone,pwd,sex,avatar
+        id,name,phone,pwd,sex,avatar,description
     </sql>
 </mapper>

@@ -5,6 +5,7 @@ import com.example.vwalkblog.common.JacksonObjectMapper;
 import com.example.vwalkblog.controller.interceptor.interc.LoginInterceptor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -21,6 +22,10 @@ import java.util.List;
 @Slf4j
 public class LoginCheckSupport extends WebMvcConfigurationSupport {
 
+    @Value("${vwalkblog.cover-path}")
+    private String basePath;
+    @Value("${vwalkblog.image-path}")
+    private String imagePath;
     @Autowired
     private LoginInterceptor loginInterceptor;
 
@@ -36,6 +41,8 @@ public class LoginCheckSupport extends WebMvcConfigurationSupport {
                         "/front/**",
                         "/user/sendMsg",
                         "/user/login",
+                        basePath,
+                        imagePath,
                         // Swagger文件
                         "/webjars/**",
                         "/doc.html",

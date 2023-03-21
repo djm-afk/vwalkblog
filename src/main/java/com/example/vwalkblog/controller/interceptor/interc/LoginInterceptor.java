@@ -32,6 +32,7 @@ public class LoginInterceptor implements HandlerInterceptor {
             response.getWriter().write(JSON.toJSONString(Result.error("NOTLOGIN")));
             return false;
         }
+//        return true;
     }
 
     @Override
